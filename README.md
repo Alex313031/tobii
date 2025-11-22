@@ -67,7 +67,7 @@ CSS: `dist/tobii.min.css`
 
 JavaScript:
 
-* `dist/tobii.min.js`: IIFE build for maximum browser support, including IE 11
+* `dist/tobii.min.js`: minified IIFE build
 * `dist/tobii.modern.js`: Build specially designed to work in all modern browsers
 * `dist/tobii.module.js`: ESM build
 * `dist/tobii.umd.js`: UMD build
@@ -261,29 +261,30 @@ The following options are available:
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
-| selector | string | ".lightbox" | All elements with this class triggers Tobii. |
+| selector | string | ".lightbox" | All elements with this class trigger Tobii. Pass `""` or `false` to init Tobii only (and `add()` later) |
 | captions | bool | true | Display captions, if available. |
 | captionsSelector | "self", "img" | "img" | Set the element where the caption is. Set it to "self" for the `a` tag itself. |
 | captionAttribute | string | "alt" | Get the caption from given attribute. |
 | captionText | function | null | Custom callback which returns the caption text for the current element. The first argument of the callback is the element. If set, `captionsSelector` and `captionAttribute` are ignored. |
 | captionHTML | bool | false | Allow HTML captions. |
+| captionToggle | bool | true | Allows users to hide or show the caption by clicking or tapping on it. |
+| captionToggleLabel | string | ["Hide caption", "Show caption"] | Labels for the caption display toggle button. |
 | nav | bool, "auto" | "auto" | Display navigation buttons. "auto" hides buttons on touch-enabled devices. |
 | navText | string | ["inline svg", "inline svg"] | Text or HTML for the navigation buttons. |
 | navLabel | string | ["Previous", "Next"] | ARIA label for screen readers. |
 | close | bool | true | Display close button. |
 | closeText | string | "inline svg" | Text or HTML for the close button. |
 | closeLabel | string | "Close" | ARIA label for screen readers. |
+| dialogTitle | string | "Lightbox" | ARIA label for screen readers. |
 | loadingIndicatorLabel | string | "Image loading" | ARIA label for screen readers. |
 | counter | bool | true | Display current image index. |
 | keyboard | bool | true | Allow keyboard navigation. |
-| zoom | bool | true | Display zoom icon. |
+| zoom | bool | false | Display zoom icon. |
 | zoomText | string | "inline svg" | Text or HTML for the zoom icon. |
 | docClose | bool | true | Click outside to close Tobii. |
 | swipeClose | bool | true | Swipe up to close Tobii. |
 | draggable | bool | true | Use dragging and touch swiping. |
 | threshold | number | 100 | Touch and mouse dragging threshold (in px). |
-| autoplayVideo | bool | false | Videos will automatically start playing as soon as they can do so without stopping to finish loading the data. |
-| autoplayAudio | bool | false | Audio will automatically start playing. |
 
 ### Data attributes
 
@@ -360,7 +361,6 @@ Tobii supports the following browser (all the latest versions):
 
 - Chrome
 - Firefox
-- Internet Explorer 11
 - Edge
 - Safari
 

@@ -2,7 +2,7 @@
  * Tobii
  *
  * @author midzer
- * @version 2.6.0
+ * @version 2.8.5
  * @url https://github.com/midzer/tobii
  *
  * MIT License
@@ -94,6 +94,11 @@ export default function Tobii (userOptions) {
       captionAttribute: 'alt',
       captionText: null,
       captionHTML: false,
+      captionToggle: true,
+      captionToggleLabel: [
+        'Hide caption',
+        'Show caption'
+      ],
       nav: 'auto',
       navText: [
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="15 6 9 12 15 18" /></svg>',
@@ -106,23 +111,17 @@ export default function Tobii (userOptions) {
       close: true,
       closeText: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z"/><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>',
       closeLabel: 'Close lightbox',
+      dialogTitle: 'Lightbox',
       loadingIndicatorLabel: 'Image loading',
       counter: true,
-      download: false, // TODO
-      downloadText: '', // TODO
-      downloadLabel: 'Download image', // TODO
       keyboard: true,
-      zoom: true,
+      zoom: false,
       zoomText: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="16 4 20 4 20 8" /><line x1="14" y1="10" x2="20" y2="4" /><polyline points="8 20 4 20 4 16" /><line x1="4" y1="20" x2="10" y2="14" /><polyline points="16 20 20 20 20 16" /><line x1="14" y1="14" x2="20" y2="20" /><polyline points="8 4 4 4 4 8" /><line x1="4" y1="4" x2="10" y2="10" /></svg>',
       docClose: true,
       swipeClose: true,
       hideScrollbar: true,
       draggable: true,
       threshold: 100,
-      rtl: false, // TODO
-      loop: false, // TODO
-      autoplayVideo: false,
-      modal: false,
       theme: 'tobii--theme-default'
     }
 
@@ -136,18 +135,54 @@ export default function Tobii (userOptions) {
    *
    */
   const init = (userOptions) => {
-    if (document.querySelector('div.tobii')) {
-      console.log('Multiple lightbox instances not supported.')
-      return
-    }
-
     // Merge user options into defaults
     userSettings = mergeOptions(userOptions)
 
-    // Check if the lightbox already exists
-    if (!lightbox) {
-      createLightbox()
-    }
+    // Create the lightbox container
+    lightbox = document.createElement('div')
+    lightbox.setAttribute('role', 'dialog')
+    lightbox.setAttribute('aria-hidden', 'true')
+    lightbox.setAttribute('aria-modal', 'true')
+    lightbox.setAttribute('aria-label', userSettings.dialogTitle)
+    lightbox.classList.add('tobii')
+
+    // Add theme class
+    lightbox.classList.add(userSettings.theme)
+
+    // Create the previous button
+    prevButton = document.createElement('button')
+    prevButton.className = 'tobii__btn tobii__btn--previous'
+    prevButton.setAttribute('type', 'button')
+    prevButton.setAttribute('aria-label', userSettings.navLabel[0])
+    prevButton.innerHTML = userSettings.navText[0]
+    lightbox.appendChild(prevButton)
+
+    // Create the next button
+    nextButton = document.createElement('button')
+    nextButton.className = 'tobii__btn tobii__btn--next'
+    nextButton.setAttribute('type', 'button')
+    nextButton.setAttribute('aria-label', userSettings.navLabel[1])
+    nextButton.innerHTML = userSettings.navText[1]
+    lightbox.appendChild(nextButton)
+
+    // Create the close button
+    closeButton = document.createElement('button')
+    closeButton.className = 'tobii__btn tobii__btn--close'
+    closeButton.setAttribute('type', 'button')
+    closeButton.setAttribute('aria-label', userSettings.closeLabel)
+    closeButton.innerHTML = userSettings.closeText
+    lightbox.appendChild(closeButton)
+
+    // Create the counter
+    counter = document.createElement('div')
+    counter.className = 'tobii__counter'
+    lightbox.appendChild(counter)
+
+    // Append to body
+    document.body.appendChild(lightbox)
+
+    // Init only
+    if (!userSettings.selector) return
 
     // Get a list of all elements within the document
     const LIGHTBOX_TRIGGER_ELS = document.querySelectorAll(userSettings.selector)
@@ -156,29 +191,7 @@ export default function Tobii (userOptions) {
       throw new Error(`Ups, I can't find the selector ${userSettings.selector} on this website.`)
     }
 
-    // Execute a few things once per element
-    const uniqueMap = []
-    LIGHTBOX_TRIGGER_ELS.forEach((lightboxTriggerEl) => {
-      const group = lightboxTriggerEl.hasAttribute('data-group') ? lightboxTriggerEl.getAttribute('data-group') : 'default'
-      let uid = lightboxTriggerEl.href
-      if (lightboxTriggerEl.hasAttribute('data-target')) {
-        uid = lightboxTriggerEl.getAttribute('data-target')
-      }
-      uid += '__' + group
-
-      if (typeof uniqueMap[uid] !== 'undefined') {
-        // duplicate - skip, but still open lightbox on click
-        lightboxTriggerEl.addEventListener('click', (event) => {
-          selectGroup(group)
-          open()
-          event.preventDefault()
-        })
-      } else {
-        // new element
-        uniqueMap[uid] = 1
-        checkDependencies(lightboxTriggerEl)
-      }
-    })
+    LIGHTBOX_TRIGGER_ELS.forEach(el => checkDependencies(el))
   }
 
   /**
@@ -276,8 +289,6 @@ export default function Tobii (userOptions) {
       // Bind click event handler
       el.addEventListener('click', triggerTobii)
 
-      const model = getModel(el)
-
       // Create slide
       const SLIDER_ELEMENT = document.createElement('div')
       const SLIDER_ELEMENT_CONTENT = document.createElement('div')
@@ -290,6 +301,7 @@ export default function Tobii (userOptions) {
       SLIDER_ELEMENT.setAttribute('aria-hidden', 'true')
 
       // Create type elements
+      const model = getModel(el)
       model.init(el, SLIDER_ELEMENT_CONTENT, userSettings)
 
       // Add slide content container to slider element
@@ -365,52 +377,6 @@ export default function Tobii (userOptions) {
       // Remove slide
       SLIDE_EL.parentNode.removeChild(SLIDE_EL)
     }
-  }
-
-  /**
-   * Create the lightbox
-   *
-   */
-  const createLightbox = () => {
-    // Create the lightbox container
-    lightbox = document.createElement('div')
-    lightbox.setAttribute('role', 'dialog')
-    lightbox.setAttribute('aria-hidden', 'true')
-    lightbox.classList.add('tobii')
-
-    // Adc theme class
-    lightbox.classList.add(userSettings.theme)
-
-    // Create the previous button
-    prevButton = document.createElement('button')
-    prevButton.className = 'tobii__btn tobii__btn--previous'
-    prevButton.setAttribute('type', 'button')
-    prevButton.setAttribute('aria-label', userSettings.navLabel[0])
-    prevButton.innerHTML = userSettings.navText[0]
-    lightbox.appendChild(prevButton)
-
-    // Create the next button
-    nextButton = document.createElement('button')
-    nextButton.className = 'tobii__btn tobii__btn--next'
-    nextButton.setAttribute('type', 'button')
-    nextButton.setAttribute('aria-label', userSettings.navLabel[1])
-    nextButton.innerHTML = userSettings.navText[1]
-    lightbox.appendChild(nextButton)
-
-    // Create the close button
-    closeButton = document.createElement('button')
-    closeButton.className = 'tobii__btn tobii__btn--close'
-    closeButton.setAttribute('type', 'button')
-    closeButton.setAttribute('aria-label', userSettings.closeLabel)
-    closeButton.innerHTML = userSettings.closeText
-    lightbox.appendChild(closeButton)
-
-    // Create the counter
-    counter = document.createElement('div')
-    counter.className = 'tobii__counter'
-    lightbox.appendChild(counter)
-
-    document.body.appendChild(lightbox)
   }
 
   const getModel = (el) => {
@@ -748,6 +714,8 @@ export default function Tobii (userOptions) {
     lastTapTime = 0
 
     if (isZoomed()) resetZoom()
+
+    TRANSFORM.element = null
   }
 
   /**
@@ -765,7 +733,7 @@ export default function Tobii (userOptions) {
    *
    */
   const updateCounter = () => {
-    counter.textContent = `${groups[activeGroup].currentIndex + 1}/${groups[activeGroup].elementsLength}`
+    counter.innerHTML = `<p>${groups[activeGroup].currentIndex + 1}/${groups[activeGroup].elementsLength}</p>`
   }
 
   /**
@@ -774,47 +742,39 @@ export default function Tobii (userOptions) {
    * @param {string|null} dir - Current slide direction
    */
   const updateFocus = (dir) => {
-    if ((userSettings.nav === true || userSettings.nav === 'auto') &&
-      !isTouchDevice() && groups[activeGroup].elementsLength > 1) {
-      prevButton.setAttribute('aria-hidden', 'true')
-      prevButton.disabled = true
-      nextButton.setAttribute('aria-hidden', 'true')
-      nextButton.disabled = true
+    const group = groups[activeGroup]
+    const isNavEnabled = userSettings.nav === true || userSettings.nav === 'auto'
+    const hasMultipleSlides = group.elementsLength > 1
 
-      // If there is only one slide
-      if (groups[activeGroup].elementsLength === 1) {
-        if (userSettings.close) {
-          closeButton.focus()
-        }
+    if (isNavEnabled && !isTouchDevice() && hasMultipleSlides) {
+      setButtonState(prevButton, true, true)
+      setButtonState(nextButton, true, true)
+
+      if (group.currentIndex === 0) {
+        setButtonState(nextButton, false, false)
+        nextButton.focus()
+      } else if (group.currentIndex === group.elementsLength - 1) {
+        setButtonState(prevButton, false, false)
+        prevButton.focus()
       } else {
-        // If the first slide is displayed
-        if (groups[activeGroup].currentIndex === 0) {
-          nextButton.setAttribute('aria-hidden', 'false')
-          nextButton.disabled = false
-
-          nextButton.focus()
-
-          // If the last slide is displayed
-        } else if (groups[activeGroup].currentIndex === groups[activeGroup].elementsLength - 1) {
-          prevButton.setAttribute('aria-hidden', 'false')
-          prevButton.disabled = false
-
+        setButtonState(prevButton, false, false)
+        setButtonState(nextButton, false, false)
+        if (dir === 'left') {
           prevButton.focus()
         } else {
-          prevButton.setAttribute('aria-hidden', 'false')
-          prevButton.disabled = false
-          nextButton.setAttribute('aria-hidden', 'false')
-          nextButton.disabled = false
-
-          if (dir === 'left') {
-            prevButton.focus()
-          } else {
-            nextButton.focus()
-          }
+          nextButton.focus()
         }
       }
     } else if (userSettings.close) {
       closeButton.focus()
+    }
+
+    if (hasMultipleSlides && group.currentIndex !== 0) {
+      const focusableFigure = getFocusableFigure()
+      if (focusableFigure) {
+        // Small delay to avoid display bug
+        setTimeout(() => { focusableFigure.focus() }, 250)
+      }
     }
   }
 
@@ -848,7 +808,7 @@ export default function Tobii (userOptions) {
     } else if (event.target === nextButton) {
       next()
     } else if (event.target === closeButton ||
-      (event.target.classList.contains('tobii__slide') && userSettings.docClose)) {
+      (event.target.classList.contains('tobii__slide') || (event.target.classList.contains('tobii') && userSettings.docClose))) {
       close()
     }
 
@@ -875,16 +835,32 @@ export default function Tobii (userOptions) {
   }
 
   /**
+   * Get the programmatically focusable figure of the given element
+   *
+   * @return {Element|null}
+   */
+  const getFocusableFigure = () => {
+    return lightbox.querySelector('.tobii__slide--is-active figure[tabindex="-1"]')
+  }
+
+  /**
+   * Set the hidden/disabled state of a button
+   *
+   */
+  const setButtonState = (button, hidden, disabled) => {
+    button.setAttribute('aria-hidden', hidden ? 'true' : 'false')
+    button.disabled = disabled
+  }
+
+  /**
    * Keydown event handler
    *
-   * @TODO: Remove the deprecated event.keyCode when Edge support event.code and we drop f*cking IE
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode
    */
   const keydownHandler = (event) => {
     const FOCUSABLE_CHILDREN = getFocusableChildren()
     const FOCUSED_ITEM_INDEX = FOCUSABLE_CHILDREN.indexOf(document.activeElement)
 
-    if (event.keyCode === 9 || event.code === 'Tab') {
+    if (event.code === 'Tab') {
       // If the SHIFT key is being pressed while tabbing (moving backwards) and
       // the currently focused item is the first one, move the focus to the last
       // focusable item from the slide
@@ -894,19 +870,19 @@ export default function Tobii (userOptions) {
         // If the SHIFT key is not being pressed (moving forwards) and the currently
         // focused item is the last one, move the focus to the first focusable item
         // from the slide
-      } else if (!event.shiftKey && FOCUSED_ITEM_INDEX === FOCUSABLE_CHILDREN.length - 1) {
+      } else if (!event.shiftKey && (FOCUSED_ITEM_INDEX === FOCUSABLE_CHILDREN.length - 1 || FOCUSED_ITEM_INDEX === -1)) {
         FOCUSABLE_CHILDREN[0].focus()
         event.preventDefault()
       }
-    } else if (event.keyCode === 27 || event.code === 'Escape') {
+    } else if (event.code === 'Escape') {
       // `ESC` Key: Close Tobii
       event.preventDefault()
       close()
-    } else if (event.keyCode === 37 || event.code === 'ArrowLeft') {
+    } else if (event.code === 'ArrowLeft') {
       // `PREV` Key: Show the previous slide
       event.preventDefault()
       previous()
-    } else if (event.keyCode === 39 || event.code === 'ArrowRight') {
+    } else if (event.code === 'ArrowRight') {
       // `NEXT` Key: Show the next slide
       event.preventDefault()
       next()
@@ -939,8 +915,8 @@ export default function Tobii (userOptions) {
     event.preventDefault()
     event.stopPropagation()
 
-    DRAG.startX = DRAG.x = event.pageX
-    DRAG.startY = DRAG.y = event.pageY
+    DRAG.startX = DRAG.x = event.clientX
+    DRAG.startY = DRAG.y = event.clientY
     DRAG.distance = 0
 
     // This event is cached to support 2-finger gestures
@@ -948,14 +924,14 @@ export default function Tobii (userOptions) {
 
     if (pointerDownCache.length === 2) {
       const { x, y } = midPoint(
-        pointerDownCache[0].pageX, pointerDownCache[0].pageY,
-        pointerDownCache[1].pageX, pointerDownCache[1].pageY
+        pointerDownCache[0].clientX, pointerDownCache[0].clientY,
+        pointerDownCache[1].clientX, pointerDownCache[1].clientY
       )
 
       DRAG.startX = DRAG.x = x
       DRAG.startY = DRAG.y = y
       DRAG.distance = distance(
-        pointerDownCache[0].pageX - pointerDownCache[1].pageX, pointerDownCache[0].pageY - pointerDownCache[1].pageY
+        pointerDownCache[0].clientX - pointerDownCache[1].clientX, pointerDownCache[0].clientY - pointerDownCache[1].clientY
       ) / TRANSFORM.scale
     }
   }
@@ -978,14 +954,15 @@ export default function Tobii (userOptions) {
     if (pointerDownCache.length === 2) {
       // 2-pointer horizontal pinch/zoom gesture
       const { x, y } = midPoint(
-        pointerDownCache[0].pageX, pointerDownCache[0].pageY,
-        pointerDownCache[1].pageX, pointerDownCache[1].pageY
+        pointerDownCache[0].clientX, pointerDownCache[0].clientY,
+        pointerDownCache[1].clientX, pointerDownCache[1].clientY
       )
       const scale = distance(
-        pointerDownCache[0].pageX - pointerDownCache[1].pageX, pointerDownCache[0].pageY - pointerDownCache[1].pageY
+        pointerDownCache[0].clientX - pointerDownCache[1].clientX, pointerDownCache[0].clientY - pointerDownCache[1].clientY
       ) / DRAG.distance
 
       zoomPan(
+        event.target,
         clamp(scale, MIN_SCALE, MAX_SCALE),
         x, y,
         x - DRAG.x, y - DRAG.y
@@ -998,14 +975,14 @@ export default function Tobii (userOptions) {
     }
 
     if (isZoomed()) {
-      const deltaX = event.pageX - DRAG.x
-      const deltaY = event.pageY - DRAG.y
+      const deltaX = event.clientX - DRAG.x
+      const deltaY = event.clientY - DRAG.y
 
       pan(deltaX, deltaY)
     }
 
-    DRAG.x = event.pageX
-    DRAG.y = event.pageY
+    DRAG.x = event.clientX
+    DRAG.y = event.clientY
 
     if (!isZoomed()) {
       // Drag animation
@@ -1032,7 +1009,8 @@ export default function Tobii (userOptions) {
    *
    */
   const pointerupHandler = (event) => {
-    event.stopPropagation()
+    // Intercept regular click handler
+    if (!pointerDownCache.length) return
 
     groups[activeGroup].slider.classList.remove('tobii__slider--is-' + (isZoomed() ? 'moving' : 'dragging'))
 
@@ -1042,19 +1020,21 @@ export default function Tobii (userOptions) {
     )
     pointerDownCache.splice(index, 1)
 
-    const MOVEMENT_X = DRAG.startX - DRAG.x
-    const MOVEMENT_Y = DRAG.startY - DRAG.y
-    const MOVEMENT_X_DISTANCE = Math.abs(MOVEMENT_X)
-    const MOVEMENT_Y_DISTANCE = Math.abs(MOVEMENT_Y)
-    if (MOVEMENT_X_DISTANCE || MOVEMENT_Y_DISTANCE) {
+    const x = event.clientX
+    const y = event.clientY
+    const deltaX = DRAG.startX - x
+    const deltaY = DRAG.startY - y
+    const distanceX = Math.abs(deltaX)
+    const distanceY = Math.abs(deltaY)
+    if (distanceX > 8 || distanceY > 8) {
       if (!isZoomed()) {
         // Evaluate drag
-        if (MOVEMENT_X < 0 && MOVEMENT_X_DISTANCE > userSettings.threshold && groups[activeGroup].currentIndex > 0) {
+        if (deltaX < 0 && distanceX > userSettings.threshold && groups[activeGroup].currentIndex > 0) {
           previous()
-        } else if (MOVEMENT_X > 0 && MOVEMENT_X_DISTANCE > userSettings.threshold &&
+        } else if (deltaX > 0 && distanceX > userSettings.threshold &&
           groups[activeGroup].currentIndex !== groups[activeGroup].elementsLength - 1) {
           next()
-        } else if (MOVEMENT_Y > 0 && MOVEMENT_Y_DISTANCE > userSettings.threshold && userSettings.swipeClose) {
+        } else if (deltaY > 0 && distanceY > userSettings.threshold && userSettings.swipeClose) {
           close()
         } else {
           updateOffset()
@@ -1062,8 +1042,8 @@ export default function Tobii (userOptions) {
       }
     } else {
       // Evaluate tap
-      const currentTime = new Date().getTime()
-      const tapLength = currentTime - lastTapTime
+      const now = Date.now()
+      const tapLength = now - lastTapTime
       if (tapLength < DOUBLE_TAP_TIME && tapLength > 100) {
         // Double click
         event.preventDefault()
@@ -1071,18 +1051,18 @@ export default function Tobii (userOptions) {
         if (isZoomed()) {
           resetZoom()
         } else {
-          zoomPan(MAX_SCALE / 2, event.clientX, event.clientY, 0, 0)
+          zoomPan(event.target, MAX_SCALE / 2, x, y, 0, 0)
         }
       } else {
-        lastTapTime = currentTime
+        lastTapTime = now
         if (isTouchDevice()) {
           // Delayed tap on mobile
           window.setTimeout(() => {
             const { left, top, bottom, right, width } = event.target.getBoundingClientRect()
-            if (DRAG.startY < top || DRAG.startY > bottom || !lastTapTime) return
-            if (DRAG.startX > left && DRAG.startX < left + width / 2) {
+            if (y < top || y > bottom || !lastTapTime) return
+            if (x > left && x < left + width / 2) {
               previous()
-            } else if (DRAG.startX < right && DRAG.startX > right - width / 2) {
+            } else if (x < right && x > right - width / 2) {
               next()
             }
           }, DOUBLE_TAP_TIME)
@@ -1102,8 +1082,9 @@ export default function Tobii (userOptions) {
 
     const newScale = TRANSFORM.scale + deltaScale / (SCALE_SENSITIVITY / TRANSFORM.scale)
     zoomPan(
+      event.target,
       clamp(newScale, MIN_SCALE, MAX_SCALE),
-      event.pageX, event.pageY,
+      event.clientX, event.clientY,
       0, 0
     )
   }
@@ -1150,16 +1131,16 @@ export default function Tobii (userOptions) {
     element.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`
   }
 
-  const zoomPan = (newScale, x, y, deltaX, deltaY) => {
-    if (!TRANSFORM.element) {
-      TRANSFORM.element = lightbox.querySelector('.tobii__slide--is-active img')
-    }
-    const { left, top } = TRANSFORM.element.getBoundingClientRect()
+  const zoomPan = (el, newScale, x, y, deltaX, deltaY) => {
+    if (el.tagName !== 'IMG') return
+
+    const { left, top } = el.getBoundingClientRect()
     const originX = x - left
     const originY = y - top
     const newOriginX = originX / TRANSFORM.scale
     const newOriginY = originY / TRANSFORM.scale
 
+    TRANSFORM.element = el
     TRANSFORM.originX = newOriginX
     TRANSFORM.originY = newOriginY
     TRANSFORM.scale = newScale
@@ -1182,8 +1163,6 @@ export default function Tobii (userOptions) {
     TRANSFORM.translateY = 0
 
     pan(0, 0)
-
-    TRANSFORM.element = null
   }
 
   /**
@@ -1257,31 +1236,23 @@ export default function Tobii (userOptions) {
    *
    */
   const updateConfig = () => {
-    if (userSettings.draggable &&
-      !groups[activeGroup].slider.classList.contains('tobii__slider--is-draggable')) {
-      groups[activeGroup].slider.classList.add('tobii__slider--is-draggable')
+    const group = groups[activeGroup]
+    const slider = group.slider
+
+    if (userSettings.draggable && !slider.classList.contains('tobii__slider--is-draggable')) {
+      slider.classList.add('tobii__slider--is-draggable')
     }
 
-    // Hide buttons if necessary
-    if (!userSettings.nav || groups[activeGroup].elementsLength === 1 ||
-      (userSettings.nav === 'auto' && isTouchDevice())) {
-      prevButton.setAttribute('aria-hidden', 'true')
-      prevButton.disabled = true
-      nextButton.setAttribute('aria-hidden', 'true')
-      nextButton.disabled = true
-    } else {
-      prevButton.setAttribute('aria-hidden', 'false')
-      prevButton.disabled = false
-      nextButton.setAttribute('aria-hidden', 'false')
-      nextButton.disabled = false
-    }
+    const hideButtons = (
+      !userSettings.nav ||
+      group.elementsLength === 1 ||
+      (userSettings.nav === 'auto' && isTouchDevice())
+    )
+    setButtonState(prevButton, hideButtons, hideButtons)
+    setButtonState(nextButton, hideButtons, hideButtons)
 
-    // Hide counter if necessary
-    if (!userSettings.counter || groups[activeGroup].elementsLength === 1) {
-      counter.setAttribute('aria-hidden', 'true')
-    } else {
-      counter.setAttribute('aria-hidden', 'false')
-    }
+    const hideCounter = !userSettings.counter || group.elementsLength === 1
+    counter.setAttribute('aria-hidden', hideCounter ? 'true' : 'false')
   }
 
   /**
@@ -1353,11 +1324,11 @@ export default function Tobii (userOptions) {
   }
 
   /**
-   * Checks whether element's nodeName is part of array
+   * Checks whether element's tagName is part of array
    *
    */
   const isIgnoreElement = (el) => {
-    return ['TEXTAREA', 'OPTION', 'INPUT', 'SELECT'].indexOf(el.nodeName) !== -1 || el === prevButton ||
+    return ['TEXTAREA', 'OPTION', 'INPUT', 'SELECT'].indexOf(el.tagName) !== -1 || el === prevButton ||
       el === nextButton || el === closeButton
   }
 

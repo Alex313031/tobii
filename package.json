@@ -1,11 +1,11 @@
 {
   "name": "@midzer/tobii",
-  "version": "2.6.1",
+  "version": "3.1.0",
   "description": "An accessible, open-source lightbox with no dependencies.",
   "main": "./dist/tobii.js",
   "module": "./dist/tobii.module.js",
   "umd:main": "./dist/tobii.umd.js",
-  "unpkg": "./dist/tobii.min.js",
+  "unpkg": "./dist/tobii.umd.js",
   "source": "./src/js/index.js",
   "exports": {
     ".": {
@@ -18,25 +18,18 @@
     "./": "./"
   },
   "devDependencies": {
-    "@eslint/compat": "1.2.3",
-    "cross-env": "7.0.3",
-    "eslint": "9.15.0",
-    "eslint-plugin-node": "11.1.0",
-    "eslint-config-standard": "17.1.0",
-    "microbundle": "0.15.1",
+    "cross-env": "^10.1.0",
+    "eslint": "9.39.1",
+    "microbundle": "^0.15.1",
+    "neostandard": "^0.12.2",
     "rimraf": "4.4.1",
-    "sass": "1.81.0",
-    "standard": "17.1.2",
-    "stylelint": "16.10.0"
-  },
-  "overrides": {
-    "eslint": "9.15.0"
+    "sass": "^1.94.2",
+    "stylelint": "^16.26.0"
   },
   "browserslist": {
     "browser": [
       "last 2 versions",
-      "not <= 1%",
-      "IE >= 11"
+      "not <= 1%"
     ],
     "main": [
       "last 2 versions",
@@ -45,8 +38,9 @@
   },
   "scripts": {
     "build": "npm run distclean && npm run build:main && npm run build:browser",
-    "build:main": "cross-env BROWSERSLIST_ENV=main microbundle build --raw --no-sourcemap --name Tobii",
+    "build:main": "cross-env BROWSERSLIST_ENV=main microbundle build --raw --no-compress --no-sourcemap --name Tobii",
     "build:browser": "cross-env BROWSERSLIST_ENV=browser microbundle build --raw -f iife src/js/browser.js -o dist/tobii.min.js --no-sourcemap --name Tobii",
+    "postbuild:browser": "node add-banner.js",
     "distclean": "rimraf dist",
     "clean": "rimraf dist && rimraf node_modules",
     "dev": "microbundle watch --raw --format cjs",
